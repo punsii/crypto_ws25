@@ -44,9 +44,10 @@
       };
 
       devShells.${system}.default = pkgs.mkShell {
-        packages = [
+        packages = with pkgs; [ 
           treefmtEval.config.build.wrapper
           pythonEnv
+          sage
         ];
       };
 
