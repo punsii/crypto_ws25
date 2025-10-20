@@ -27,24 +27,42 @@
           prettier.enable = true;
           nixfmt.enable = true;
         };
+        settings.formatter.black.includes = [ "*.sage" ];
       };
-      pythonEnv = pkgs.python3.withPackages (
+      extraPythonPackages =
         ps: with ps; [
-          matplotlib
-          numpy
-          pandas
-          streamlit
-        ]
-      );
+          pytest
+          pycryptodome
+        ];
+
+      sage = pkgs.sage.override {
+        requireSageTests = false;
+        inherit extraPythonPackages;
+      };
+      sagelib = sage.with-env.env.lib;
+
+      python3 = pkgs.python3 // {
+        pkgs = pkgs.python3.pkgs.overrideScope (
+          self: super: {
+            inherit sagelib;
+          }
+        );
+      };
+      pythonEnv = python3.withPackages (ps: (extraPythonPackages ps) ++ [ sagelib ]);
+
     in
     {
-      packages.${system} = rec {
-        inherit pythonEnv;
-        default = pythonEnv;
+      packages.${system} = {
+        default = pkgs.dockerTools.buildLayeredImage {
+          name = "sage";
+          tag = "latest";
+          created = "now";
+          contents = [ sage ];
+        };
       };
 
       devShells.${system}.default = pkgs.mkShell {
-        packages = with pkgs; [ 
+        packages = [
           treefmtEval.config.build.wrapper
           pythonEnv
           sage

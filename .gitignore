@@ -2,4 +2,7 @@ result
 .direnv
 .streamlit
 __pychache__
+.pytest_cache
 *.pyc
+
+*.sage.py
