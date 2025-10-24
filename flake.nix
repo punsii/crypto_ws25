@@ -50,8 +50,28 @@
       };
       pythonEnv = python3.withPackages (ps: (extraPythonPackages ps) ++ [ sagelib ]);
 
+      exercises = [
+        "p01"
+        "sss"
+      ];
+
+      apps = builtins.listToAttrs (
+        builtins.map (name: {
+          inherit name;
+          value = {
+            type = "app";
+            program = "${pkgs.writeShellScriptBin name ''
+              ${sage}/bin/sage -c 'load("./src/${name}.py")'
+            ''}/bin/${name}";
+          };
+        }) exercises
+      );
     in
     {
+      apps.${system} = apps // {
+        default = apps.p01;
+      };
+
       packages.${system} = {
         default = pkgs.dockerTools.buildLayeredImage {
           name = "sage";
