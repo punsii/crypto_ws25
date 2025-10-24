@@ -1,20 +1,12 @@
-from modular import (
-    rfc_mod,
-    rfc_mod_add,
-    rfc_mod_sub,
-    rfc_mod_mul,
-    rfc_mod_inv,
-    rfc_mod_div,
-    coprime,
-    stein,
-)
-
 import random
 
-from sage.all import *
+from sage.all import gcd, randint
+
+from .p02 import (coprime, rfc_mod, rfc_mod_add, rfc_mod_div, rfc_mod_inv,
+                  rfc_mod_mul, rfc_mod_sub, stein)
 
 num_tests = 10000
-upper_bound = 2 ** 128
+upper_bound = 2**128
 
 
 def get_rands():
@@ -37,8 +29,8 @@ def test_mod():
     """
 
     for i in range(num_tests):
-        a = randint(1, 2 ** 128)
-        b = randint(1, 2 ** 128)
+        a = randint(1, 2**128)
+        b = randint(1, 2**128)
 
         x = max(a, b)
         y = min(a, b)
