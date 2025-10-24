@@ -50,26 +50,24 @@
       };
       pythonEnv = python3.withPackages (ps: (extraPythonPackages ps) ++ [ sagelib ]);
 
-      exercises = [
-        "p01"
-        "sss"
-      ];
-
-      apps = builtins.listToAttrs (
-        builtins.map (name: {
-          inherit name;
-          value = {
-            type = "app";
-            program = "${pkgs.writeShellScriptBin name ''
-              ${sage}/bin/sage -c 'load("./src/${name}.py")'
-            ''}/bin/${name}";
-          };
-        }) exercises
-      );
+      apps = {
+        sage = {
+          type = "app";
+          program = "${pkgs.writeShellScriptBin "runSage" ''
+            ${sage}/bin/sage -c "load('./src/$1.py')"
+          ''}/bin/runSage";
+        };
+        dev = {
+          type = "app";
+          program = "${pkgs.writeShellScriptBin "dev" ''
+            echo "src/$1.py" | ${pkgs.entr}/bin/entr ${sage}/bin/sage -c "load('./src/$1.py')"
+          ''}/bin/dev";
+        };
+      };
     in
     {
       apps.${system} = apps // {
-        default = apps.p01;
+        default = apps.sage;
       };
 
       packages.${system} = {
