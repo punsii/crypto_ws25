@@ -81,7 +81,7 @@ def stein(a: int, b: int) -> int:
 
 
 def run_test():
-    pytest.main(["./src/p02_test.py", "-vv", "--durations=0"])
+    pytest.main(["./test_mod.py", "-vv", "--durations=0"])
 
 
 run_test()

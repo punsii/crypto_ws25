@@ -2,8 +2,8 @@ import random
 
 from sage.all import gcd, randint
 
-from .p02 import (coprime, rfc_mod, rfc_mod_add, rfc_mod_div, rfc_mod_inv,
-                  rfc_mod_mul, rfc_mod_sub, stein)
+from .modular import (coprime, rfc_mod, rfc_mod_add, rfc_mod_div, rfc_mod_inv,
+                      rfc_mod_mul, rfc_mod_sub, stein)
 
 num_tests = 10000
 upper_bound = 2**128

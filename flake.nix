@@ -54,13 +54,19 @@
         sage = {
           type = "app";
           program = "${pkgs.writeShellScriptBin "runSage" ''
-            ${sage}/bin/sage -c "load('./src/$1.py')"
+            target_dir=$(dirname $1)
+            filename=$(basename $1)
+            cd $target_dir
+            ${sage}/bin/sage -c "load('$filename')"
           ''}/bin/runSage";
         };
         dev = {
           type = "app";
           program = "${pkgs.writeShellScriptBin "dev" ''
-            echo "src/$1.py" | ${pkgs.entr}/bin/entr ${sage}/bin/sage -c "load('./src/$1.py')"
+            target_dir=$(dirname $1)
+            filename=$(basename $1)
+            cd $target_dir
+            find . | ${pkgs.entr}/bin/entr ${sage}/bin/sage -c "load('$filename')"
           ''}/bin/dev";
         };
       };
