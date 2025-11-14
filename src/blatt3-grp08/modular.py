@@ -1,8 +1,6 @@
 #!/usr/bin/env sage
 
-import random
-
-from sage.all import *
+from sage.all import gcd
 
 
 def rfc_mod(a, q):

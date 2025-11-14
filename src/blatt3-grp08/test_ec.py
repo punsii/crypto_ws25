@@ -1,6 +1,6 @@
-from ec import secp256k1, ec_add, ec_inv, ec_mul, ec_mul_ml, G
-
-from sage.all import *
+from ec import (G, ec_add, ec_inv, ec_mul, ec_mul_ml, secp256k1,
+                uncompress_point)
+from sage.all import randint
 
 H = (
     55585044667560533658782103119277438379139238629741365435910370101297866015577,
@@ -25,9 +25,8 @@ def test_ec_def():
 
 def rand_ec_point(C):
 
-    n = randint(0, 2 ** 256)
-    m = randint(0, 20)          # generate point at infinity with probability
-                                # 1/20
+    n = randint(0, 2**256)
+    m = randint(0, 20)  # generate point at infinity with probability 1/20
     if m == 0:
         n = 0
 
