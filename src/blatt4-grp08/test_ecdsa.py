@@ -1,5 +1,6 @@
 import ecdsa
-from ecdsa import recover_key, secp256k1, sign, verify
+from ecdsa import (deterministic_sign, generate_k, recover_key, secp256k1,
+                   sign, verify)
 from sage.all import randint
 
 num_test = 500
@@ -93,3 +94,19 @@ def test_verify_testMessages():
     assert not verify(msg3, sig3, secp256k1(pubkey1[0], pubkey1[1], pubkey1[2]))
     assert not verify(msg3, sig3, secp256k1(pubkey2[0], pubkey2[1], pubkey2[2]))
     assert verify(msg3, sig3, secp256k1(pubkey3[0], pubkey3[1], pubkey3[2]))
+
+
+def test_deterministic_sign():
+    for i in range(0, num_test):
+        # create random message
+        msg = str(randint(1, 2**512))
+
+        privkey = randint(1, 2**256)
+        pubkey = privkey * ecdsa.G
+
+        k = generate_k(msg, privkey)
+
+        sig1 = sign(msg, privkey, k)
+        sig2 = deterministic_sign(msg, privkey)
+        assert verify(msg, sig1, pubkey)
+        assert sig1 == sig2

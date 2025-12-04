@@ -1,8 +1,11 @@
 import hashlib
+import hmac
 from typing import Tuple
 
 from modular import rfc_mod, rfc_mod_add, rfc_mod_inv, rfc_mod_mul, rfc_mod_sub
 from sage.all import GF, EllipticCurve, randint
+
+HASHFUNC = hashlib.sha256
 
 # Parameter für die secp256k1 Kurve
 p = 2**256 - 2**32 - 2**9 - 2**8 - 2**7 - 2**6 - 2**4 - 1
@@ -70,10 +73,12 @@ pubkey3 = (
 )
 
 
-def hash_string(msg: str) -> int:
-    hash = hashlib.sha256()
-    hash.update(msg.encode())
-    return int(hash.hexdigest(), 16)
+def hash_string(msg: str) -> str:
+    return HASHFUNC(msg.encode()).hexdigest()
+
+
+def hash_string_to_int(msg: str) -> int:
+    return int(hash_string(msg), 16)
 
 
 def sign(msg, privkey, fixed_k=None) -> Tuple[int, int]:
@@ -83,7 +88,7 @@ def sign(msg, privkey, fixed_k=None) -> Tuple[int, int]:
     # 2. Alice berechnet ein Element der Kurve als 𝑄𝐴 = 𝑑𝐴 ⋅ 𝑔, den öffentlichen Schlüssel
     # pubkey = privkey * G
 
-    hashed_message = hash_string(msg)
+    hashed_message = hash_string_to_int(msg)
     while True:
         # Signatur
         # 1. Alice generiert eine kryptographisch sichere zufällige Zahl 𝑘 ∈ [1; 𝑛 − 1]
@@ -112,7 +117,7 @@ def sign(msg, privkey, fixed_k=None) -> Tuple[int, int]:
 
 def verify(msg, sig, pubkey) -> bool:
     (r, s) = sig
-    hashed_message = hash_string(msg)
+    hashed_message = hash_string_to_int(msg)
 
     # prüft Bob, dass 𝑄𝐴 ≠ 𝑂 und 𝑛 ⋅ 𝑄𝐴 = 𝑂 gilt
     if pubkey == N or n * pubkey != N:
@@ -149,17 +154,119 @@ def recover_key(sig1, sig2, msg1, msg2):
     s2 = sig2[1]
 
     k = rfc_mod_mul(
-        rfc_mod_sub(hash_string(msg1), hash_string(msg2), n),
+        rfc_mod_sub(hash_string_to_int(msg1), hash_string_to_int(msg2), n),
         rfc_mod_inv(rfc_mod_sub(s1, s2, n), n),
         n,
     )
 
     (r, _, _) = k * G
     dA = rfc_mod_mul(
-        rfc_mod_inv(r, n), rfc_mod_sub(rfc_mod_mul(k, s1, n), hash_string(msg1), n), n
+        rfc_mod_inv(r, n),
+        rfc_mod_sub(rfc_mod_mul(k, s1, n), hash_string_to_int(msg1), n),
+        n,
     )
 
     return dA
+
+
+def _int2octets(x: int) -> bytes:
+    """Convert integer x to a fixed-length big-endian octet string (rlen bytes)."""
+    qlen = n.bit_length()
+    rlen = (qlen + 7) // 8
+    return x.to_bytes(rlen, "big")
+
+
+def _bits2int(b: bytes) -> int:
+    """Convert leftmost qlen bits of b to an integer."""
+    qlen = n.bit_length()
+    blen = len(b) * 8
+    i = int.from_bytes(b, "big")
+    if blen > qlen:
+        i >>= blen - qlen
+    return i
+
+
+def _bits2octets(b: bytes) -> bytes:
+    z1 = _bits2int(b)
+    if z1 >= n:
+        z1 -= n
+    return _int2octets(z1)
+
+
+def generate_k(msg: str, privkey: int) -> int:
+    x = privkey
+    qlen = n.bit_length()
+
+    # a: h1 = H(m)
+    h1 = HASHFUNC(msg.encode()).digest()
+
+    hlen = HASHFUNC().digest_size * 8
+    v_len = (hlen + 7) // 8  # == HASHFUNC().digest_size for common hashes
+
+    # b: V = 0x01 ... 0x01
+    V = b"\x01" * v_len
+
+    # c: K = 0x00 ... 0x00
+    K = b"\x00" * v_len
+
+    # d: K = HMAC_K(V || 0x00 || int2octets(x) || bits2octets(h1))
+    K = hmac.new(
+        K,
+        V + b"\x00" + _int2octets(x) + _bits2octets(h1),
+        HASHFUNC,
+    ).digest()
+
+    # e: V = HMAC_K(V)
+    V = hmac.new(K, V, HASHFUNC).digest()
+
+    # f: K = HMAC_K(V || 0x01 || int2octets(x) || bits2octets(h1))
+    K = hmac.new(
+        K,
+        V + b"\x01" + _int2octets(x) + _bits2octets(h1),
+        HASHFUNC,
+    ).digest()
+
+    # g: V = HMAC_K(V)
+    V = hmac.new(K, V, HASHFUNC).digest()
+
+    # h: loop until we get a valid k in [1, q-1]
+    while True:
+        T = b""
+        while len(T) * 8 < qlen:
+            V = hmac.new(K, V, HASHFUNC).digest()
+            T += V
+
+        k = _bits2int(T)
+
+        # check if k is suitable.
+        if 1 <= k < n:
+            # check that k does not result in an r value of 0
+            (x, _, _) = k * G
+            r = rfc_mod(x, n)
+            if r != 0:
+                return k
+
+        # Otherwise, update K and V and try again
+        K = hmac.new(K, V + b"\x00", HASHFUNC).digest()
+        V = hmac.new(K, V, HASHFUNC).digest()
+
+
+def deterministic_sign(msg, privkey) -> Tuple[int, int]:
+    # almoste the same as in sign()
+    hashed_message = hash_string_to_int(msg)
+    while True:
+        k = generate_k(msg, privkey)
+        (x, _, _) = k * G
+
+        # Checking that r != 0 happens in generate_k() already, but it does'nt hurt to check again
+        r = rfc_mod(x, n)
+        s = rfc_mod_mul(
+            rfc_mod_inv(k, n), hashed_message + rfc_mod_mul(r, privkey, n), n
+        )
+        if r != 0 and s != 0:
+            break
+
+    return (r, s)
 
 
 def testECDSA():
