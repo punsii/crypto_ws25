@@ -156,8 +156,11 @@ def mkZkTree(valList):
 
     # Interleave a list of normal valuse with a list of random values.
     # This will result in a merkle tree where the right leaves contain random values.
-    zkValList = [] * (2 * n)
-    zkValList[::2] = valList
-    zkValList[1::2] = random.sample(range(1, 2**32), n)
+    MAGIC = "ThisValueShouldNotBePresentInTheContent"
+    zkValList = []
+    for i in range(len(valList)):
+        zkValList.append(valList[i])
+        # For each element, append a salt that will be the corresponding next (right) node
+        zkValList.append(MAGIC + str(random.randint(1, 2**32)))
 
     return mkTree(zkValList)
