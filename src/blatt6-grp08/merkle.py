@@ -24,11 +24,11 @@ root_128 = "e65dfeb38aa330e7691b1abed7b9894f2114ce1c9bb19149cf9da5c5be4c834d"
 
 class Node:
     def __init__(self):
-        self.left: Node = None
-        self.right: Node = None
-        self.hashVal: str = None
+        self.left: Node | None = None
+        self.right: Node | None = None
+        self.hashVal: str = ""
         self.content: int | None = None
-        self.parent: Node = None
+        self.parent: Node | None = None
 
     def __str__(self):
         if self.content is None:
@@ -47,7 +47,9 @@ class Node:
         return self.__str__()
 
 
-def nodeHash(left: str, right: str) -> str:
+def nodeHash(left: str | None, right: str | None) -> str:
+    if not left or not right:
+        return ""
     h = HASHFUNC()
     h.update(left.encode())
     h.update(HASH_SEPERATOR.encode())
@@ -130,20 +132,27 @@ def mkProof(tree: Node, element: Any) -> List[Tuple[str, bool]] | None:
         return None
 
     proof = []
-    while node.parent is not None:
+    while node.parent:
         if node.parent.left == node:
+            assert isinstance(node.parent.right, Node)
             proof.append((node.parent.right.hashVal, False))
         else:
+            assert isinstance(node.parent.left, Node)
             proof.append((node.parent.left.hashVal, True))
         node = node.parent
     return proof
 
 
 def validateProof(element: Any, proof: List[Tuple[str, bool]], root_hash: str):
+    # Recalculate the hashes based on the provided hashes in the prove.
     cur_hash = HASHFUNC(str(element).encode()).hexdigest()
+    # iterate over all tuples
     for next_hash, is_left in proof:
+        # swap left and right if necessary and calculate next hash
         (left, right) = (next_hash, cur_hash) if is_left else (cur_hash, next_hash)
         cur_hash = nodeHash(left, right)
+
+    # if the provided hashes allow us to correctly recalculate the root hash, we can be sure that the element is part of the tree
     return cur_hash == root_hash
 
 
@@ -154,9 +163,14 @@ def mkZkTree(valList):
         # This will be checked again in mkTree, but we can return early here
         return None
 
-    # Interleave a list of normal valuse with a list of random values.
-    # This will result in a merkle tree where the right leaves contain random values.
+    # When searching for an element in the tree we do not want to find our random filler leafs.
+    # This magic string is used to make sure that the random content cannot match the "real" contents.
+    # A better solution would be to add a "isFillerNode" flag to the Nodes
+    # or to have separate classes for "Root", "Node", "Leaf" and "ZKLeaf" which all inherit from a "BaseNode" class.
     MAGIC = "ThisValueShouldNotBePresentInTheContent"
+
+    # Interleave a list of normal values with a list of random values.
+    # This will result in a merkle tree where the right leaves always contain random values.
     zkValList = []
     for i in range(len(valList)):
         zkValList.append(valList[i])

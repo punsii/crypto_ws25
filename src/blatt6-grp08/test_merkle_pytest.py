@@ -84,6 +84,27 @@ def test_create_example_tree():
     assert tree.hashVal == EXAMPLE_ROOT_128
 
 
+def test_create_minimal_trees():
+    # a single leaf node is also a merkle tree
+    tree = merkle.mkTree([0])
+    assert tree is not None
+    assert isinstance(tree, merkle.Node)
+    assert tree.hashVal == merkle.HASHFUNC(str(0).encode()).hexdigest()
+    assert tree.left is None
+    assert tree.right is None
+    assert tree.parent is None
+
+    # the smallest "useful" unit is a tree with one root node and two leafs
+    tree = merkle.mkTree([0, 1])
+    assert tree is not None
+    assert isinstance(tree, merkle.Node)
+    assert tree.hashVal is not None
+    assert tree.hashVal != ""
+    assert isinstance(tree.left, merkle.Node)
+    assert isinstance(tree.right, merkle.Node)
+    assert tree.parent is None
+
+
 def test_create_example_proofs():
     tree = merkle.mkTree(EXAMPLE_TREE_VALUES)
     assert tree is not None
@@ -117,6 +138,21 @@ def test_create_random_zk_proofs():
         proof = merkle.mkProof(tree, i)
         assert proof is not None
         assert merkle.validateProof(i, proof, tree.hashVal)
+
+
+def test_cannot_create_trees():
+    """When the number of values is not a power of two, tree generation should fail"""
+    values = random.sample(range(1, 2**32), 2**5 - 1)
+    tree = merkle.mkTree(values)
+    assert tree is None
+    zkTree = merkle.mkZkTree(values)
+    assert zkTree is None
+
+    values = random.sample(range(1, 2**32), 3)
+    tree = merkle.mkTree(values)
+    assert tree is None
+    zkTree = merkle.mkZkTree(values)
+    assert zkTree is None
 
 
 def test_cannot_create_proofs():
